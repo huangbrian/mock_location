@@ -1,11 +1,18 @@
 package com.brianbhuang.fakelocation
 
+import android.annotation.SuppressLint
+import android.app.AlertDialog
+import android.app.Dialog
 import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.location.Location
+import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.SystemClock
+import android.provider.Settings
 import android.support.v4.app.ActivityCompat
 import android.support.v7.app.AppCompatActivity
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -13,81 +20,77 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.*
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import java.util.*
+import kotlin.concurrent.timer
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback,
-GoogleMap.OnMapClickListener {
-
-    class FakeLocation : LocationSource {
-
-        private var listener: LocationSource.OnLocationChangedListener? = null
-        private var fakePoint: Location
-
-        constructor(loc: LatLng) {
-            fakePoint = Location("fake")
-            fakePoint.latitude = loc.latitude
-            fakePoint.longitude = loc.longitude
-            fakePoint.accuracy = 100F
-            listener?.onLocationChanged(fakePoint)
-        }
-
-        override fun activate(p0: LocationSource.OnLocationChangedListener?) {
-            if (p0 != null) {
-                this.listener = p0
-            }
-        }
-
-        fun move(point: LatLng) {
-            fakePoint = Location("fake")
-            fakePoint.latitude = point.latitude
-            fakePoint.longitude = point.longitude
-            fakePoint.accuracy = 100F
-            listener?.onLocationChanged(fakePoint)
-        }
-
-        override fun deactivate() {
-            this.listener = null
+GoogleMap.OnMapClickListener, LocationListener {
+    override fun onLocationChanged(p0: Location?) {
+        println(p0.toString() + " ----- location change")
+        if (p0 != null) {
+            println(p0.isFromMockProvider.toString() + " -------- is mock")
+            println(p0.provider.toString() + " --------- provider")
         }
     }
 
+    override fun onStatusChanged(p0: String?, p1: Int, p2: Bundle?) {
+        println(p0 + " ----- status change")
+    }
+
+    override fun onProviderEnabled(p0: String?) {
+        //TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
+    override fun onProviderDisabled(p0: String?) {
+        //TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
     private lateinit var mMap: GoogleMap
-    //private lateinit var lastLocation: Location
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private lateinit var source: FakeLocation
-    //private lateinit var locationCallback: LocationCallback
     private lateinit var lm: LocationManager
+    private lateinit var sharedPreferences: SharedPreferences
+    private lateinit var location: LatLng
+    private var timer: Timer? = null
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
     }
 
+    @SuppressLint("MissingPermission")
     override fun onMapClick(p0: LatLng?) {
         if (p0 != null) {
             placeMarkerOnMap(p0)
-            source.move(p0)
-            var fakePoint = Location("gps")
-            fakePoint.latitude = p0.latitude
-            fakePoint.longitude = p0.longitude
-            fakePoint.accuracy = 0F
-            fakePoint.time = System.currentTimeMillis()
-            fakePoint.altitude = 0.0
-            fakePoint.elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
-            fusedLocationClient.setMockLocation(fakePoint)
+            updateLocation(p0)
+            location = p0
 
-            lm.setTestProviderLocation(LocationManager.GPS_PROVIDER, fakePoint)
-            fakePoint.provider = "network"
-            lm.setTestProviderLocation(LocationManager.NETWORK_PROVIDER, fakePoint)
-//            lm.setTestProviderEnabled(LocationManager.PASSIVE_PROVIDER, true)
-            for (provide in lm.allProviders) {
-                println(provide)
-            }
+            val editor = sharedPreferences.edit()
+            editor.putFloat("lat", p0.latitude.toFloat())
+            editor.putFloat("long", p0.longitude.toFloat())
+            editor.apply()
+
+            //debugging code
             println(lm.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)?.toString() + " pas")
             println(lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)?.toString() + " net")
             println(lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)?.toString() + " gps")
             println(lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)?.toString() + " net")
             println(lm.isProviderEnabled(LocationManager.GPS_PROVIDER)?.toString() + " gps")
-            println(fakePoint.toString() + "fakeloc")
             println("\ncomplete\n")
         }
+    }
+
+    private fun updateLocation(p0: LatLng) {
+        var fakePoint = Location(LocationManager.GPS_PROVIDER)
+        fakePoint.latitude = p0.latitude
+        fakePoint.longitude = p0.longitude
+        fakePoint.accuracy = 0F
+        fakePoint.time = System.currentTimeMillis()
+        fakePoint.altitude = 0.0
+        fakePoint.elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+
+        lm.setTestProviderLocation(LocationManager.GPS_PROVIDER, fakePoint)
+            fakePoint.provider = LocationManager.NETWORK_PROVIDER
+            lm.setTestProviderLocation(LocationManager.NETWORK_PROVIDER, fakePoint)
+        fusedLocationClient.setMockLocation(fakePoint)
     }
 
     private fun setUpMocks () {
@@ -98,20 +101,14 @@ GoogleMap.OnMapClickListener {
                 provider.supportsSpeed(), provider.supportsBearing(),
                 provider.powerRequirement, provider.accuracy)
         val providergps = lm.getProvider(LocationManager.GPS_PROVIDER)
-        lm.addTestProvider(providergps.name, provider.requiresNetwork(),
+        lm.addTestProvider(providergps.name, providergps.requiresNetwork(),
                 providergps.requiresSatellite(), providergps.requiresCell(),
                 providergps.hasMonetaryCost(), providergps.supportsAltitude(),
                 providergps.supportsSpeed(), providergps.supportsBearing(),
                 providergps.powerRequirement, providergps.accuracy)
-        //val providerps = lm.getProvider(LocationManager.PASSIVE_PROVIDER)
-//            /lm.addTestProvider(providerps.name, providerps.requiresNetwork(),
-//                    providerps.requiresSatellite(), providerps.requiresCell(),
-//                    providerps.hasMonetaryCost(), providerps.supportsAltitude(),
-//                    providerps.supportsSpeed(), providerps.supportsBearing(),
-//                    providerps.powerRequirement, providerps.accuracy)
-//            //lm.setTestProviderLocation("fake", fakePoint)
         lm.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
         lm.setTestProviderEnabled(LocationManager.NETWORK_PROVIDER, true)
+        fusedLocationClient.setMockMode(true)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -121,35 +118,8 @@ GoogleMap.OnMapClickListener {
         val mapFragment = supportFragmentManager
                 .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
-//        locationCallback = object : LocationCallback() {
-//            override fun onLocationResult(locationResult: LocationResult?) {
-//                locationResult ?: return
-//                for (location in locationResult.locations){
-//                    // Update UI with location data
-//                    // ...
-//                }
-//            }
-//        }
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
     }
-
-//    override fun onResume() {
-//        super.onResume()
-//        startLocationUpdates()
-//    }
-//
-//    private fun startLocationUpdates() {
-//        fusedLocationClient.requestLocationUpdates(LocationRequest.create(), locationCallback, null)
-//    }
-//
-//    override fun onPause() {
-//        super.onPause()
-//        stopLocationUpdates()
-//    }
-//
-//    private fun stopLocationUpdates() {
-//        fusedLocationClient.removeLocationUpdates(locationCallback)
-//    }
 
     private fun setUpMap() {
         if (ActivityCompat.checkSelfPermission(this,
@@ -160,25 +130,23 @@ GoogleMap.OnMapClickListener {
         }
         mMap.isMyLocationEnabled = true
 
-        fusedLocationClient.lastLocation.addOnSuccessListener(this) { location ->
+        lm.requestLocationUpdates("gps",0,0f,this)
+        lm.requestLocationUpdates("network",0,0f,this)
+        lm.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER,0,0f,this)
 
-            if (location != null) {
-                val currentLatLng = LatLng(location.latitude, location.longitude)
-                placeMarkerOnMap(currentLatLng)
-                source = FakeLocation(currentLatLng)
-                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 12f))
-                mMap.setLocationSource(source)
-                println("done\n\n\n\n\n\n")
-            }
-            else {
-                val nolatlng = LatLng(37.422, -122.084)
-                placeMarkerOnMap(nolatlng)
-                source = FakeLocation(nolatlng)
-                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(nolatlng, 12f))
-                mMap.setLocationSource(source)
-            }
-            fusedLocationClient.setMockMode(true)
-            setUpMocks()
+        setUpMocks()
+
+        sharedPreferences = this.getSharedPreferences("mock_location", android.content.Context.MODE_PRIVATE)
+
+        val latLng = LatLng(sharedPreferences.getFloat("lat", 37.422F).toDouble(),
+                sharedPreferences.getFloat("long", -122.084F).toDouble())
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 7f))
+        placeMarkerOnMap(latLng)
+        updateLocation(latLng)
+        location = latLng
+
+        timer = timer(period = 5000L) {
+            updateLocation(location)
         }
     }
 
@@ -206,8 +174,22 @@ GoogleMap.OnMapClickListener {
         mMap = googleMap
         lm = this.getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
-        setUpMap()
-        //setUpMocks()
+        try {
+            setUpMap()
+
+        } catch (exception: java.lang.SecurityException) {
+            val builder = AlertDialog.Builder(this)
+            builder.setMessage("Please set App as Mock Location App in Developer Settings")
+            builder.setNeutralButton("OK") {_,_->
+                startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
+                //finish()
+            }
+            builder.setCancelable(false)
+            val alertDialog = builder.create()
+            alertDialog.show()
+            println("failed")
+        }
+
         mMap.uiSettings.isZoomControlsEnabled = true
         mMap.setOnMapClickListener(this)
     }

@@ -45,12 +45,27 @@ GoogleMap.OnMapClickListener, LocationListener {
         //TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
 
+    override fun onPause() {
+        super.onPause()
+        if(needsSetup)
+            println("paused for settings")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if(needsSetup) {
+            setUpMap()
+            needsSetup = false
+        }
+    }
+
     private lateinit var mMap: GoogleMap
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var lm: LocationManager
     private lateinit var sharedPreferences: SharedPreferences
     private lateinit var location: LatLng
     private var timer: Timer? = null
+    private var needsSetup = false
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -181,6 +196,7 @@ GoogleMap.OnMapClickListener, LocationListener {
             val builder = AlertDialog.Builder(this)
             builder.setMessage("Please set App as Mock Location App in Developer Settings")
             builder.setNeutralButton("OK") {_,_->
+                needsSetup = true
                 startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
                 //finish()
             }

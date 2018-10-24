@@ -26,15 +26,15 @@ import kotlin.concurrent.timer
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback,
 GoogleMap.OnMapClickListener, LocationListener {
     override fun onLocationChanged(p0: Location?) {
-        println(p0.toString() + " ----- location change")
-        if (p0 != null) {
-            println(p0.isFromMockProvider.toString() + " -------- is mock")
-            println(p0.provider.toString() + " --------- provider")
-        }
+//        println(p0.toString() + " ----- location change")
+//        if (p0 != null) {
+//            println(p0.isFromMockProvider.toString() + " -------- is mock")
+//            println(p0.provider.toString() + " --------- provider")
+//        }
     }
 
     override fun onStatusChanged(p0: String?, p1: Int, p2: Bundle?) {
-        println(p0 + " ----- status change")
+//        println(p0 + " ----- status change")
     }
 
     override fun onProviderEnabled(p0: String?) {
@@ -45,11 +45,11 @@ GoogleMap.OnMapClickListener, LocationListener {
         //TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
 
-    override fun onPause() {
-        super.onPause()
-        if(needsSetup)
-            println("paused for settings")
-    }
+//    override fun onPause() {
+//        super.onPause()
+//        if(needsSetup)
+//            println("paused for settings")
+//    }
 
     override fun onResume() {
         super.onResume()
@@ -84,12 +84,12 @@ GoogleMap.OnMapClickListener, LocationListener {
             editor.apply()
 
             //debugging code
-            println(lm.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)?.toString() + " pas")
-            println(lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)?.toString() + " net")
-            println(lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)?.toString() + " gps")
-            println(lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)?.toString() + " net")
-            println(lm.isProviderEnabled(LocationManager.GPS_PROVIDER)?.toString() + " gps")
-            println("\ncomplete\n")
+//            println(lm.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)?.toString() + " pas")
+//            println(lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)?.toString() + " net")
+//            println(lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)?.toString() + " gps")
+//            println(lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)?.toString() + " net")
+//            println(lm.isProviderEnabled(LocationManager.GPS_PROVIDER)?.toString() + " gps")
+//            println("\ncomplete\n")
         }
     }
 
@@ -203,7 +203,7 @@ GoogleMap.OnMapClickListener, LocationListener {
             builder.setCancelable(false)
             val alertDialog = builder.create()
             alertDialog.show()
-            println("failed")
+            //println("failed")
         }
 
         mMap.uiSettings.isZoomControlsEnabled = true

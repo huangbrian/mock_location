@@ -6,26 +6,38 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
+import android.os.Handler
 import android.os.SystemClock
 import android.provider.Settings
-import android.support.v4.app.ActivityCompat
-import android.support.v7.app.AppCompatActivity
+import android.util.Log
+import android.view.View
+import android.widget.Button
+import androidx.core.app.ActivityCompat
+import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.*
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.libraries.places.widget.AutocompleteSupportFragment
 import java.util.*
 import kotlin.concurrent.timer
 import com.crashlytics.android.Crashlytics;
+import com.google.android.gms.common.api.Status
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.api.model.Place.*
+import com.google.android.libraries.places.api.net.PlacesClient
+import com.google.android.libraries.places.widget.listener.PlaceSelectionListener
 import io.fabric.sdk.android.Fabric;
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback,
-GoogleMap.OnMapClickListener, LocationListener {
+GoogleMap.OnMapClickListener, LocationListener, PlaceSelectionListener, View.OnClickListener {
     override fun onLocationChanged(p0: Location?) {
         //TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
@@ -42,11 +54,35 @@ GoogleMap.OnMapClickListener, LocationListener {
         //TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
 
+    override fun onPlaceSelected(p0: Place) {
+        val latlng = p0.latLng
+        println(p0.toString()+" here----")
+        if (latlng != null) {
+            placeMarkerOnMap(latlng)
+            selected = latlng
+            mMap.animateCamera(CameraUpdateFactory.newLatLng(latlng))
+
+            val editor = sharedPreferences.edit()
+            editor.putFloat("lat", latlng.latitude.toFloat())
+            editor.putFloat("long", latlng.longitude.toFloat())
+            editor.apply()
+        }
+    }
+
+    override fun onError(p0: Status) {
+        Log.i(p0.toString()," invalid input")
+    }
+
+    override fun onClick(p0: View?) {
+        updateLocation(selected)
+    }
+
     private lateinit var mMap: GoogleMap
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var lm: LocationManager
     private lateinit var sharedPreferences: SharedPreferences
     private lateinit var location: LatLng
+    private lateinit var selected: LatLng
     private var timer: Timer? = null
     private var needsSetup = false
 
@@ -62,6 +98,18 @@ GoogleMap.OnMapClickListener, LocationListener {
                 .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        // Initialize place API
+        if (!Places.isInitialized()) {
+            Places.initialize(applicationContext, applicationContext.getString(R.string.api_key));
+        }
+        val acsupportFragment = supportFragmentManager
+                .findFragmentById(R.id.autocomplete_fragment) as AutocompleteSupportFragment
+        acsupportFragment.setPlaceFields(listOf(Field.ID, Field.NAME, Field.LAT_LNG))
+        acsupportFragment.setOnPlaceSelectedListener(this)
+        acsupportFragment.view?.setBackgroundColor(Color.WHITE)
+
+        val button = findViewById<Button>(R.id.update)
+        button.setOnClickListener(this)
     }
 
     private fun setUpMap() {
@@ -69,6 +117,12 @@ GoogleMap.OnMapClickListener, LocationListener {
                         android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
                     arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
+
+            Handler().post({
+                val mainIntent = Intent(this@MapsActivity, Splash::class.java)
+                this@MapsActivity.startActivity(mainIntent)
+                finish()
+            })
             return
         }
         mMap.isMyLocationEnabled = true
@@ -86,6 +140,7 @@ GoogleMap.OnMapClickListener, LocationListener {
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 7f))
         placeMarkerOnMap(latLng)
         updateLocation(latLng)
+        selected = latLng
         location = latLng
 
         timer = timer(period = 2000L) {
@@ -131,6 +186,12 @@ GoogleMap.OnMapClickListener, LocationListener {
         fakePoint.altitude = 0.0
         fakePoint.elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
 
+        location = p0
+        val editor = sharedPreferences.edit()
+        editor.putFloat("lat", p0.latitude.toFloat())
+        editor.putFloat("long", p0.longitude.toFloat())
+        editor.apply()
+
         lm.setTestProviderLocation(LocationManager.GPS_PROVIDER, fakePoint)
         fakePoint.provider = LocationManager.NETWORK_PROVIDER
         lm.setTestProviderLocation(LocationManager.NETWORK_PROVIDER, fakePoint)
@@ -166,20 +227,25 @@ GoogleMap.OnMapClickListener, LocationListener {
         }
 
         mMap.uiSettings.isZoomControlsEnabled = true
+        mMap.setPadding(0,150,0,0)
         mMap.setOnMapClickListener(this)
     }
 
-    @SuppressLint("MissingPermission")
     override fun onMapClick(p0: LatLng?) {
+        if (ActivityCompat.checkSelfPermission(this,
+                        android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
+            Handler().post({
+                val mainIntent = Intent(this@MapsActivity, Splash::class.java)
+                this@MapsActivity.startActivity(mainIntent)
+                finish()
+            })
+            return
+        }
         if (p0 != null) {
             placeMarkerOnMap(p0)
-            updateLocation(p0)
-            location = p0
-
-            val editor = sharedPreferences.edit()
-            editor.putFloat("lat", p0.latitude.toFloat())
-            editor.putFloat("long", p0.longitude.toFloat())
-            editor.apply()
+            selected = p0
         }
     }
 

@@ -1,4 +1,8 @@
 <resources>
-    <string name="app_name">fakeLocation</string>
-    <string name="title_activity_maps">Map</string>
+    <string name="app_name">Location Mocker</string>
+    <string name="title_activity_maps">Location Mocker - Select Mock Location</string>
+    <string name="start_message">Starting app...</string>
+    <string name="permissions">Please turn on location permissions in settings.</string>
+    <string name="button">Set current location!</string>
+    <string name="api_key">AIzaSyAdMSZt0svq0h0yJP7v7PB_x12MReBA5ZY</string>
 </resources>
